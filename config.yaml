@@ -33,17 +33,22 @@ products:
         provider: "requests"
         in_stock_keywords:
           - "買い物かごに入れる"
+          - "商品をかごに追加"
+          - "購入手続き"
           - "かごに追加"
           - "在庫あり"
           - "販売中"
         out_of_stock_keywords:
           - "売り切れ"
+          - "売り切れました"
+          - "在庫切れ"
           - "在庫なし"
           - "販売期間前"
           - "販売期間終了"
           - "ご購入できません"
 
       - site: "ヨドバシ"
+        enabled: false # GitHub Actionsからは403になりやすいため一旦無効
         url: "https://www.yodobashi.com/product/100000001009945170/"
         provider: "requests"
         in_stock_keywords:
@@ -59,6 +64,7 @@ products:
           - "入荷未定"
 
       - site: "ビックカメラ"
+        enabled: false # GitHub Actionsではタイムアウトしやすいため一旦無効
         url: "https://www.biccamera.com/bc/item/15228971/"
         provider: "requests"
         in_stock_keywords:
@@ -76,6 +82,7 @@ products:
           - "お取り寄せ"
 
       - site: "ビックカメラ 店舗在庫"
+        enabled: false # GitHub Actionsではタイムアウトしやすいため一旦無効
         url: "https://www.biccamera.com/bc/tenpo/SfrBcToriokiList.jsp?GOODS_NO=15228971"
         provider: "requests"
         in_stock_keywords:
@@ -89,6 +96,7 @@ products:
           - "販売終了"
 
       - site: "エディオン"
+        enabled: false # GitHub Actionsからは403になりやすいため一旦無効
         url: "https://www.edion.com/detail.html?p_cd=00086212656"
         provider: "requests"
         in_stock_keywords:
@@ -136,6 +144,7 @@ products:
     priority: 2
     urls:
       - site: "DJI公式"
+        enabled: false # GitHub Actions上で /jp が外れて404になるため一旦無効
         url: "https://store.dji.com/jp/product/osmo-pocket-4p"
         provider: "requests"
         in_stock_keywords:
