@@ -1,0 +1,151 @@
+settings:
+  timezone: "Asia/Tokyo"
+  conflict_policy: "out_of_stock_wins"
+  request:
+    timeout_seconds: 20
+    retries: 2
+    backoff_seconds: 3
+    user_agent: "Mozilla/5.0 (compatible; osmo-pocket-stock-watch/1.0)"
+
+products:
+  - id: osmo_pocket_4p_vlog
+    name: "Osmo Pocket 4P Vlogコンボ"
+    priority: 1
+    urls:
+      - site: "Yahoo!ショッピング DJI公式"
+        url: "https://store.shopping.yahoo.co.jp/dji-store/6937224148307.html"
+        provider: "requests"
+        in_stock_keywords:
+          - "カートに入れる"
+          - "在庫あり"
+          - "販売中"
+          - "優良配送"
+        out_of_stock_keywords:
+          - "在庫切れ"
+          - "在庫なし"
+          - "売り切れ"
+          - "現在売り切れ"
+          - "販売期間前"
+          - "販売期間終了"
+
+      - site: "楽天市場 DJI公式"
+        url: "https://item.rakuten.co.jp/dji-shop/6937224148307/"
+        provider: "requests"
+        in_stock_keywords:
+          - "買い物かごに入れる"
+          - "かごに追加"
+          - "在庫あり"
+          - "販売中"
+        out_of_stock_keywords:
+          - "売り切れ"
+          - "在庫なし"
+          - "販売期間前"
+          - "販売期間終了"
+          - "ご購入できません"
+
+      - site: "ヨドバシ"
+        url: "https://www.yodobashi.com/product/100000001009945170/"
+        provider: "requests"
+        in_stock_keywords:
+          - "ショッピングカートに入れる"
+          - "在庫あり"
+          - "在庫残少"
+          - "販売中"
+        out_of_stock_keywords:
+          - "予定数の販売を終了しました"
+          - "販売を終了しました"
+          - "在庫なし"
+          - "お取り寄せ"
+          - "入荷未定"
+
+      - site: "ビックカメラ"
+        url: "https://www.biccamera.com/bc/item/15228971/"
+        provider: "requests"
+        in_stock_keywords:
+          - "カートに入れる"
+          - "在庫あり"
+          - "在庫残少"
+          - "お届けできます"
+          - "24時間以内に出荷"
+        out_of_stock_keywords:
+          - "入荷次第出荷"
+          - "次回入荷未定"
+          - "販売終了"
+          - "予定数の販売を終了"
+          - "在庫なし"
+          - "お取り寄せ"
+
+      - site: "ビックカメラ 店舗在庫"
+        url: "https://www.biccamera.com/bc/tenpo/SfrBcToriokiList.jsp?GOODS_NO=15228971"
+        provider: "requests"
+        in_stock_keywords:
+          - "在庫あり"
+          - "在庫残少"
+          - "お取り置き"
+          - "店舗に在庫があります"
+        out_of_stock_keywords:
+          - "在庫なし"
+          - "お取り置きできません"
+          - "販売終了"
+
+      - site: "エディオン"
+        url: "https://www.edion.com/detail.html?p_cd=00086212656"
+        provider: "requests"
+        in_stock_keywords:
+          - "カートに入れる"
+          - "在庫あり"
+          - "在庫僅少"
+          - "在庫わずか"
+          - "販売中"
+        out_of_stock_keywords:
+          - "在庫なし"
+          - "売り切れ"
+          - "販売終了"
+          - "お取り寄せ"
+          - "入荷次第出荷"
+
+      - site: "ヤマダデンキ"
+        url: "https://www.yamada-denkiweb.com/153483019/"
+        provider: "requests"
+        in_stock_keywords:
+          - "カートに入れる"
+          - "在庫あり"
+          - "在庫わずか"
+          - "販売中"
+        out_of_stock_keywords:
+          - "在庫なし"
+          - "売り切れ"
+          - "販売終了"
+          - "お取り寄せ"
+          - "入荷待ち"
+
+      # AmazonはHTML直接監視に依存しすぎないため、Keepa API用に分離しています。
+      # 使う場合は enabled を true にし、GitHub Secrets に KEEPA_API_KEY を登録してください。
+      - site: "Amazon"
+        enabled: false
+        provider: "keepa"
+        asin: "B0GKPH85VZ"
+        url: "https://www.amazon.co.jp/dp/B0GKPH85VZ"
+        keepa_domain: 5
+        keepa_price_indexes:
+          - 0
+          - 1
+
+  - id: osmo_pocket_4p_standard
+    name: "Osmo Pocket 4P スタンダードコンボ / 単品"
+    priority: 2
+    urls:
+      - site: "DJI公式"
+        url: "https://store.dji.com/jp/product/osmo-pocket-4p"
+        provider: "requests"
+        in_stock_keywords:
+          - "カートに追加"
+          - "カートに入れる"
+          - "購入する"
+          - "在庫あり"
+        out_of_stock_keywords:
+          - "在庫切れ"
+          - "入荷待ち"
+          - "売り切れ"
+          - "在庫なし"
+          - "通知を受け取る"
