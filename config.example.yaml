@@ -1,0 +1,81 @@
+# このファイルを config.yaml にコピーして、実際の商品URLやASINに置き換えてください。
+settings:
+  timezone: "Asia/Tokyo"
+  conflict_policy: "out_of_stock_wins" # out_of_stock_wins / in_stock_wins / unknown
+  request:
+    timeout_seconds: 20
+    retries: 2
+    backoff_seconds: 3
+    user_agent: "Mozilla/5.0 (compatible; osmo-pocket-stock-watch/1.0)"
+
+products:
+  - id: osmo_pocket_4p_vlog
+    name: "Osmo Pocket 4P Vlogコンボ"
+    priority: 1
+    urls:
+      - site: "DJI公式"
+        url: "ここにDJI公式のVlogコンボ商品URL"
+        provider: "requests"
+        in_stock_keywords:
+          - "カートに入れる"
+          - "購入する"
+          - "在庫あり"
+        out_of_stock_keywords:
+          - "在庫切れ"
+          - "入荷待ち"
+          - "売り切れ"
+          - "在庫なし"
+
+      # AmazonはHTML直接監視に依存しすぎないため、必要に応じてKeepaなどへ分離します。
+      # 使う場合は enabled を true にし、GitHub Secrets に KEEPA_API_KEY を登録してください。
+      - site: "Amazon"
+        enabled: false
+        provider: "keepa"
+        asin: "ここにASIN"
+        url: "https://www.amazon.co.jp/dp/ここにASIN"
+        keepa_domain: 5
+        keepa_price_indexes:
+          - 0
+          - 1
+
+  - id: osmo_pocket_4p_standard
+    name: "Osmo Pocket 4P スタンダードコンボ / 単品"
+    priority: 2
+    urls:
+      - site: "DJI公式"
+        url: "ここにDJI公式のスタンダードコンボまたは単品の商品URL"
+        provider: "requests"
+        in_stock_keywords:
+          - "カートに入れる"
+          - "購入する"
+          - "在庫あり"
+        out_of_stock_keywords:
+          - "在庫切れ"
+          - "入荷待ち"
+          - "売り切れ"
+          - "在庫なし"
+
+      # ヨドバシ、エディオン、ヤマダデンキなどは、このブロックをコピーして追加します。
+      - site: "ヨドバシ"
+        enabled: false
+        url: "ここに商品URL"
+        provider: "requests"
+        in_stock_keywords:
+          - "在庫あり"
+          - "販売中"
+          - "ショッピングカートに入れる"
+        out_of_stock_keywords:
+          - "販売を終了しました"
+          - "予定数の販売を終了しました"
+          - "在庫なし"
+          - "お取り寄せ"
+
+      - site: "Amazon"
+        enabled: false
+        provider: "keepa"
+        asin: "ここにASIN"
+        url: "https://www.amazon.co.jp/dp/ここにASIN"
+        keepa_domain: 5
+        keepa_price_indexes:
+          - 0
+          - 1
