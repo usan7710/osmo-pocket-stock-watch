@@ -149,6 +149,38 @@ def keyword_matches(text: str, keywords: list[str] | None) -> list[str]:
     return [word for word in keywords if word and str(word).casefold() in folded]
 
 
+def decide_structured_stock(html: str) -> tuple[str, bool | None, str] | None:
+    availability_values = re.findall(
+        r'"availability"\s*:\s*"([^"]+)"',
+        html,
+        flags=re.IGNORECASE,
+    )
+    if not availability_values:
+        return None
+
+    normalized = [value.rsplit("/", 1)[-1].casefold() for value in availability_values]
+    out_tokens = {"outofstock", "soldout", "discontinued"}
+    in_tokens = {"instock", "limitedavailability", "preorder"}
+
+    out_matches = [value for value in normalized if value in out_tokens]
+    in_matches = [value for value in normalized if value in in_tokens]
+    if out_matches:
+        return (
+            "out_of_stock",
+            False,
+            "構造化データavailabilityで在庫なしを検出: "
+            + ", ".join(sorted(set(out_matches))),
+        )
+    if in_matches:
+        return (
+            "in_stock",
+            True,
+            "構造化データavailabilityで在庫ありを検出: "
+            + ", ".join(sorted(set(in_matches))),
+        )
+    return None
+
+
 def decide_stock(
     text: str,
     in_stock_keywords: list[str] | None,
@@ -297,12 +329,16 @@ def check_with_requests(
             config.get("settings", {}).get("conflict_policy", "out_of_stock_wins"),
         )
     )
-    status, in_stock, reason = decide_stock(
-        text,
-        target.get("in_stock_keywords"),
-        target.get("out_of_stock_keywords"),
-        conflict_policy,
-    )
+    structured = decide_structured_stock(html)
+    if structured:
+        status, in_stock, reason = structured
+    else:
+        status, in_stock, reason = decide_stock(
+            text,
+            target.get("in_stock_keywords"),
+            target.get("out_of_stock_keywords"),
+            conflict_policy,
+        )
     return build_result(
         product,
         target,
@@ -364,12 +400,16 @@ def check_with_playwright(
             config.get("settings", {}).get("conflict_policy", "out_of_stock_wins"),
         )
     )
-    status, in_stock, reason = decide_stock(
-        text,
-        target.get("in_stock_keywords"),
-        target.get("out_of_stock_keywords"),
-        conflict_policy,
-    )
+    structured = decide_structured_stock(html)
+    if structured:
+        status, in_stock, reason = structured
+    else:
+        status, in_stock, reason = decide_stock(
+            text,
+            target.get("in_stock_keywords"),
+            target.get("out_of_stock_keywords"),
+            conflict_policy,
+        )
     return build_result(
         product,
         target,
@@ -615,11 +655,115 @@ def find_notification_events(
     return sorted(events, key=lambda item: (item.priority, item.product_name, item.site))
 
 
-def build_discord_message(
+def status_label(result: CheckResult) -> str:
+    if result.in_stock is True:
+        return "✅ 在庫あり"
+    if result.in_stock is False:
+        return "❌ 在庫なし"
+    if result.status == "skipped":
+        return "⏸ スキップ"
+    if result.status == "error":
+        return "⚠️ エラー"
+    return "❓ 判定保留"
+
+
+def clean_reason(result: CheckResult) -> str:
+    reason = result.reason
+    if result.in_stock is True:
+        if ":" in reason:
+            return "在庫あり表示を検出（" + reason.split(":", 1)[1].strip() + "）"
+        return "在庫あり表示を検出"
+    if result.in_stock is False:
+        if ":" in reason:
+            return "在庫なし表示を検出（" + reason.split(":", 1)[1].strip() + "）"
+        return "在庫なし表示を検出"
+    if result.status == "skipped":
+        return "一時スキップ中"
+    if result.status == "error":
+        return "取得エラー: " + (result.error or reason)
+    if "キーワードに一致しません" in reason:
+        return "在庫判定キーワードに一致せず"
+    return reason
+
+
+def status_color(results: list[CheckResult]) -> int:
+    active = [result for result in results if result.status != "skipped"]
+    if any(result.in_stock is True for result in active):
+        return 0x2ECC71
+    if any(result.status == "error" for result in active):
+        return 0xF1C40F
+    if any(result.in_stock is None for result in active):
+        return 0xE67E22
+    return 0xE74C3C
+
+
+def count_statuses(results: list[CheckResult]) -> dict[str, int]:
+    return {
+        "in_stock": sum(result.in_stock is True for result in results),
+        "out_of_stock": sum(result.in_stock is False for result in results),
+        "unknown": sum(
+            result.in_stock is None
+            and result.status not in {"skipped", "error"}
+            for result in results
+        ),
+        "error": sum(result.status == "error" for result in results),
+        "skipped": sum(result.status == "skipped" for result in results),
+    }
+
+
+def truncate_value(value: str, limit: int = 1024) -> str:
+    if len(value) <= limit:
+        return value
+    return value[: limit - 10].rstrip() + "\n...省略"
+
+
+def append_chunked_field(
+    embed: dict[str, Any],
+    name: str,
+    lines: list[str],
+    *,
+    inline: bool = False,
+    limit: int = 1024,
+) -> None:
+    if not lines:
+        return
+
+    chunk: list[str] = []
+    chunk_len = 0
+    field_count = 1
+    for line in lines:
+        addition = len(line) + (1 if chunk else 0)
+        if chunk and chunk_len + addition > limit:
+            field_name = name if field_count == 1 else f"{name} ({field_count})"
+            embed["fields"].append(
+                {"name": field_name, "value": "\n".join(chunk), "inline": inline}
+            )
+            field_count += 1
+            chunk = [line]
+            chunk_len = len(line)
+        else:
+            chunk.append(line)
+            chunk_len += addition
+
+    if chunk:
+        field_name = name if field_count == 1 else f"{name} ({field_count})"
+        embed["fields"].append(
+            {"name": field_name, "value": "\n".join(chunk), "inline": inline}
+        )
+
+
+def format_result_line(result: CheckResult, *, include_reason: bool = True) -> str:
+    line = f"{status_label(result)} [{result.site}]({result.url})"
+    if include_reason:
+        line += f"\n{clean_reason(result)}"
+    return line
+
+
+def build_restock_embed(
     event: CheckResult,
     results: list[CheckResult],
     config: dict[str, Any],
-) -> str:
+) -> tuple[str, list[dict[str, Any]]]:
     vlog_available_other = [
         item
         for item in results
@@ -632,93 +776,100 @@ def build_discord_message(
     ]
 
     if event.priority == 1:
-        lines = [
-            f"🚨【最優先】{event.product_name}が在庫復活した可能性があります！",
-        ]
-        if lower_available:
-            lines.append(
-                "代替候補も在庫ありの可能性がありますが、まずVlogコンボを確認してください。"
-            )
+        content = f"🚨【最優先】{event.product_name} が在庫復活した可能性があります！"
+        title = "最優先候補の在庫復活"
+        description = "まずVlogコンボを確認してください。"
+        color = 0xE74C3C
     else:
-        lines = [
-            f"⚠️【代替候補】{event.product_name}が在庫復活した可能性があります。",
-            "Vlogコンボではありませんが、購入候補として確認してください。",
-        ]
-        if vlog_available_other:
-            top = vlog_available_other[0]
-            lines.insert(
-                0,
-                "🚨 Vlogコンボも在庫ありの可能性があります。最優先でVlogコンボを確認してください。",
-            )
-            lines.insert(1, f"最優先候補：{top.site} {top.url}")
+        content = f"⚠️【代替候補】{event.product_name} が在庫復活した可能性があります。"
+        title = "代替候補の在庫復活"
+        description = "Vlogコンボではありませんが、購入候補として確認してください。"
+        color = 0xF1C40F
 
-    lines.extend(
-        [
-            f"販売サイト：{event.site}",
-            f"商品ページ：{event.url}",
-            f"判定理由：{event.reason}",
-            f"確認時刻：{display_time(event.checked_at, config)}",
-        ]
-    )
-    return "\n".join(lines)
+    if event.priority != 1 and vlog_available_other:
+        top = vlog_available_other[0]
+        description = (
+            "Vlogコンボも在庫ありの可能性があります。"
+            f"\n最優先候補: [{top.site}]({top.url})"
+        )
+    elif event.priority == 1 and lower_available:
+        description += "\n代替候補も在庫ありの可能性があります。"
 
-
-def status_label(result: CheckResult) -> str:
-    if result.in_stock is True:
-        return "✅ 在庫ありの可能性"
-    if result.in_stock is False:
-        return "❌ 在庫なし"
-    if result.status == "skipped":
-        return "⏸ スキップ"
-    if result.status == "error":
-        return "⚠️ エラー"
-    return "❓ 判定保留"
+    embed = {
+        "title": title,
+        "description": description,
+        "url": event.url,
+        "color": color,
+        "fields": [
+            {"name": "販売サイト", "value": event.site, "inline": True},
+            {"name": "商品", "value": event.product_name, "inline": True},
+            {"name": "判定理由", "value": clean_reason(event), "inline": False},
+        ],
+        "footer": {"text": f"確認時刻: {display_time(event.checked_at, config)}"},
+    }
+    return content, [embed]
 
 
-def truncate_discord_content(content: str, limit: int = 1900) -> str:
-    if len(content) <= limit:
-        return content
-    return content[: limit - 20].rstrip() + "\n...省略"
-
-
-def build_current_status_message(
+def build_current_status_embed(
     results: list[CheckResult],
     config: dict[str, Any],
-) -> str:
-    lines = [
-        "📋【現在の在庫状況】Osmo Pocket 4P",
-        f"確認時刻：{display_time(now_utc(), config)}",
-        "",
-    ]
-
+) -> tuple[str, list[dict[str, Any]]]:
     active = [result for result in results if result.status != "skipped"]
     skipped = [result for result in results if result.status == "skipped"]
+    counts = count_statuses(results)
+    active_counts = count_statuses(active)
+    summary = (
+        f"✅ 在庫あり {active_counts['in_stock']}件 / "
+        f"❌ 在庫なし {active_counts['out_of_stock']}件 / "
+        f"❓ 判定保留 {active_counts['unknown']}件 / "
+        f"⚠️ エラー {active_counts['error']}件 / "
+        f"⏸ スキップ {counts['skipped']}件"
+    )
 
-    if active:
-        lines.append("有効な監視対象：")
-        for result in sorted(active, key=lambda item: (item.priority, item.site)):
-            lines.extend(
-                [
-                    f"- {status_label(result)} / {result.site}",
-                    f"  商品：{result.product_name}",
-                    f"  理由：{result.reason}",
-                    f"  URL：{result.url}",
-                ]
-            )
-    else:
-        lines.append("有効な監視対象はありません。")
+    embed: dict[str, Any] = {
+        "title": "Osmo Pocket 4P 現在の在庫状況",
+        "description": summary,
+        "color": status_color(results),
+        "fields": [],
+        "footer": {"text": f"確認時刻: {display_time(now_utc(), config)}"},
+    }
 
-    if skipped:
-        lines.append("")
-        lines.append("一時スキップ中：")
-        for result in sorted(skipped, key=lambda item: (item.priority, item.site)):
-            lines.append(f"- {result.site} / {result.product_name}")
+    vlog_lines = [
+        format_result_line(result)
+        for result in sorted(active, key=lambda item: (item.priority, item.site))
+        if result.priority == 1
+    ]
+    alt_lines = [
+        format_result_line(result)
+        for result in sorted(active, key=lambda item: (item.priority, item.site))
+        if result.priority != 1
+    ]
+    skipped_lines = [
+        f"⏸ [{result.site}]({result.url})\n{result.product_name}"
+        for result in sorted(skipped, key=lambda item: (item.priority, item.site))
+    ]
 
-    return truncate_discord_content("\n".join(lines))
+    append_chunked_field(embed, "最優先: Vlogコンボ", vlog_lines or ["有効な監視対象なし"])
+    append_chunked_field(embed, "代替候補", alt_lines or ["有効な監視対象なし"])
+    append_chunked_field(
+        embed,
+        f"一時スキップ中（{len(skipped_lines)}件）",
+        skipped_lines or ["なし"],
+    )
+
+    return "📋 現在の在庫状況を確認しました。", [embed]
 
 
-def post_discord(webhook_url: str, content: str) -> bool:
-    payload = {"content": content, "allowed_mentions": {"parse": []}}
+def post_discord(
+    webhook_url: str,
+    content: str = "",
+    embeds: list[dict[str, Any]] | None = None,
+) -> bool:
+    payload: dict[str, Any] = {"allowed_mentions": {"parse": []}}
+    if content:
+        payload["content"] = content
+    if embeds:
+        payload["embeds"] = embeds
     for attempt in range(3):
         try:
             response = requests.post(webhook_url, json=payload, timeout=15)
@@ -748,7 +899,8 @@ def send_current_status(results: list[CheckResult], config: dict[str, Any]) -> b
         logging.error("DISCORD_WEBHOOK_URL が未設定のため現在状況を通知できません。")
         return False
 
-    success = post_discord(webhook_url, build_current_status_message(results, config))
+    content, embeds = build_current_status_embed(results, config)
+    success = post_discord(webhook_url, content, embeds)
     if success:
         logging.info("Discordへ現在状況を通知しました。")
     else:
@@ -772,8 +924,8 @@ def send_notifications(
 
     notification_results: dict[str, bool] = {}
     for event in events:
-        message = build_discord_message(event, results, config)
-        success = post_discord(webhook_url, message)
+        content, embeds = build_restock_embed(event, results, config)
+        success = post_discord(webhook_url, content, embeds)
         notification_results[event.key] = success
         if success:
             logging.info("Discordへ通知しました: %s / %s", event.product_name, event.site)

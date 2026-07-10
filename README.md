@@ -91,6 +91,10 @@ GitHub Actionsでは、リポジトリの `Actions` → `Stock Watch` → `Run w
 
 Discordで現在の在庫状況を確認したい場合は、`Run workflow` を押す時に `send_current_status` にチェックを入れて実行します。この場合は、在庫復活の有無に関係なく、現在の判定結果サマリーがDiscordへ送られます。
 
+通知はDiscordの埋め込み表示で送られます。先頭に件数サマリーを表示し、有効な監視対象と一時スキップ中の対象を分けて確認できます。
+
+Discordの `/stock` コマンドから現在状況確認を起動したい場合は、[discord/README.md](discord/README.md) を見てCloudflare Workerを設定してください。Discord Webhookだけではコマンドを受け取れないため、Discord Applicationと公開URLを持つ中継Workerが必要です。
+
 ## 7. GitHub Actionsでの定期実行方法
 
 `.github/workflows/stock-watch.yml` は以下に対応しています。
