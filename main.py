@@ -55,6 +55,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--config", default="config.yaml", help="Path to config.yaml")
     parser.add_argument("--state", default="state.json", help="Path to state.json")
     parser.add_argument(
+        "--notify-current",
+        action="store_true",
+        help="Send the current stock status summary to Discord.",
+    )
+    parser.add_argument(
         "--log-level",
         default=os.getenv("LOG_LEVEL", "INFO"),
         choices=["DEBUG", "INFO", "WARNING", "ERROR"],
@@ -658,6 +663,60 @@ def build_discord_message(
     return "\n".join(lines)
 
 
+def status_label(result: CheckResult) -> str:
+    if result.in_stock is True:
+        return "✅ 在庫ありの可能性"
+    if result.in_stock is False:
+        return "❌ 在庫なし"
+    if result.status == "skipped":
+        return "⏸ スキップ"
+    if result.status == "error":
+        return "⚠️ エラー"
+    return "❓ 判定保留"
+
+
+def truncate_discord_content(content: str, limit: int = 1900) -> str:
+    if len(content) <= limit:
+        return content
+    return content[: limit - 20].rstrip() + "\n...省略"
+
+
+def build_current_status_message(
+    results: list[CheckResult],
+    config: dict[str, Any],
+) -> str:
+    lines = [
+        "📋【現在の在庫状況】Osmo Pocket 4P",
+        f"確認時刻：{display_time(now_utc(), config)}",
+        "",
+    ]
+
+    active = [result for result in results if result.status != "skipped"]
+    skipped = [result for result in results if result.status == "skipped"]
+
+    if active:
+        lines.append("有効な監視対象：")
+        for result in sorted(active, key=lambda item: (item.priority, item.site)):
+            lines.extend(
+                [
+                    f"- {status_label(result)} / {result.site}",
+                    f"  商品：{result.product_name}",
+                    f"  理由：{result.reason}",
+                    f"  URL：{result.url}",
+                ]
+            )
+    else:
+        lines.append("有効な監視対象はありません。")
+
+    if skipped:
+        lines.append("")
+        lines.append("一時スキップ中：")
+        for result in sorted(skipped, key=lambda item: (item.priority, item.site)):
+            lines.append(f"- {result.site} / {result.product_name}")
+
+    return truncate_discord_content("\n".join(lines))
+
+
 def post_discord(webhook_url: str, content: str) -> bool:
     payload = {"content": content, "allowed_mentions": {"parse": []}}
     for attempt in range(3):
@@ -681,6 +740,20 @@ def post_discord(webhook_url: str, content: str) -> bool:
             logging.warning("Discord通知エラー。%s 秒後に再試行します: %s", sleep_seconds, exc)
             time.sleep(sleep_seconds)
     return False
+
+
+def send_current_status(results: list[CheckResult], config: dict[str, Any]) -> bool:
+    webhook_url = os.getenv("DISCORD_WEBHOOK_URL", "").strip()
+    if not webhook_url:
+        logging.error("DISCORD_WEBHOOK_URL が未設定のため現在状況を通知できません。")
+        return False
+
+    success = post_discord(webhook_url, build_current_status_message(results, config))
+    if success:
+        logging.info("Discordへ現在状況を通知しました。")
+    else:
+        logging.error("Discordへの現在状況通知に失敗しました。")
+    return success
 
 
 def send_notifications(
@@ -812,6 +885,8 @@ def main() -> int:
         results = run_checks(config, checked_at)
         events = find_notification_events(results, state)
         notification_results = send_notifications(events, results, config)
+        if args.notify_current:
+            send_current_status(results, config)
         changed = apply_results_to_state(
             state, results, events, notification_results, checked_at
         )

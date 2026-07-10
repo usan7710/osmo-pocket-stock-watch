@@ -89,11 +89,14 @@ python main.py --config config.yaml --state state.json
 
 GitHub Actionsでは、リポジトリの `Actions` → `Stock Watch` → `Run workflow` から手動実行できます。
 
+Discordで現在の在庫状況を確認したい場合は、`Run workflow` を押す時に `send_current_status` にチェックを入れて実行します。この場合は、在庫復活の有無に関係なく、現在の判定結果サマリーがDiscordへ送られます。
+
 ## 7. GitHub Actionsでの定期実行方法
 
 `.github/workflows/stock-watch.yml` は以下に対応しています。
 
 - `workflow_dispatch`: 手動実行
+- `send_current_status`: 手動実行時だけ現在状況をDiscordへ送信
 - `schedule`: 10分おきの定期実行
 - `DISCORD_WEBHOOK_URL`: GitHub Secretsから読み込み
 - 実行ログ: 各商品の判定結果を表示
