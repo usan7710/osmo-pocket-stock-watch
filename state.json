@@ -83,17 +83,17 @@
     "osmo_pocket_4p_vlog:bc361f1446e99aeb": {
       "error": null,
       "first_seen_at": "2026-07-10T15:27:51.769257+00:00",
-      "in_stock": false,
-      "last_changed_at": "2026-07-10T15:27:51.769257+00:00",
-      "last_notified_at": null,
-      "notified_in_stock": false,
+      "in_stock": true,
+      "last_changed_at": "2026-07-11T01:05:37.638970+00:00",
+      "last_notified_at": "2026-07-11T01:05:37.638970+00:00",
+      "notified_in_stock": true,
       "priority": 1,
       "product_id": "osmo_pocket_4p_vlog",
       "product_name": "Osmo Pocket 4P Vlogコンボ",
       "provider": "requests",
-      "reason": "在庫なしキーワードに一致: 在庫なし",
+      "reason": "構造化データavailabilityで在庫ありを検出: instock",
       "site": "Yahoo!ショッピング DJI公式",
-      "status": "out_of_stock",
+      "status": "in_stock",
       "url": "https://store.shopping.yahoo.co.jp/dji-store/6937224148307.html"
     },
     "osmo_pocket_4p_vlog:c635e8d42d0356dd": {
@@ -145,6 +145,6 @@
       "url": "https://www.amazon.co.jp/dp/B0GKPH85VZ"
     }
   },
-  "updated_at": "2026-07-10T15:46:29.384591+00:00",
+  "updated_at": "2026-07-11T01:05:37.638970+00:00",
   "version": 1
 }
