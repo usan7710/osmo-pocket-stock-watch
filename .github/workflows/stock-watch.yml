@@ -8,6 +8,11 @@ on:
         required: false
         default: false
         type: boolean
+      check_skipped_urls:
+        description: "一時スキップ中のURLも今回だけ確認する"
+        required: false
+        default: false
+        type: boolean
   schedule:
     - cron: "*/10 * * * *"
 
@@ -43,6 +48,7 @@ jobs:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           KEEPA_API_KEY: ${{ secrets.KEEPA_API_KEY }}
           SEND_CURRENT_STATUS: ${{ inputs.send_current_status || false }}
+          CHECK_SKIPPED_URLS: ${{ inputs.check_skipped_urls || false }}
         run: |
           if [ -f config.yaml ]; then
             CONFIG_FILE=config.yaml
@@ -52,7 +58,10 @@ jobs:
 
           EXTRA_ARGS=""
           if [ "$SEND_CURRENT_STATUS" = "true" ]; then
-            EXTRA_ARGS="--notify-current"
+            EXTRA_ARGS="$EXTRA_ARGS --notify-current"
+          fi
+          if [ "$CHECK_SKIPPED_URLS" = "true" ]; then
+            EXTRA_ARGS="$EXTRA_ARGS --check-disabled"
           fi
 
           python main.py --config "$CONFIG_FILE" --state state.json $EXTRA_ARGS
