@@ -41,6 +41,11 @@ function jsonResponse(body, status = 200) {
 }
 
 async function dispatchStockWatch(env) {
+  const githubToken = (env.GITHUB_TOKEN || "").trim().replace(/^Bearer\s+/i, "");
+  if (!githubToken) {
+    throw new Error("Cloudflare WorkerのGITHUB_TOKENが未設定です。");
+  }
+
   const owner = env.GITHUB_OWNER || "usan7710";
   const repo = env.GITHUB_REPO || "osmo-pocket-stock-watch";
   const workflow = env.GITHUB_WORKFLOW || "stock-watch.yml";
@@ -50,7 +55,7 @@ async function dispatchStockWatch(env) {
   const response = await fetch(url, {
     method: "POST",
     headers: {
-      authorization: `Bearer ${env.GITHUB_TOKEN}`,
+      authorization: `Bearer ${githubToken}`,
       accept: "application/vnd.github+json",
       "x-github-api-version": "2022-11-28",
       "user-agent": "osmo-pocket-stock-watch-discord-command",
@@ -58,12 +63,25 @@ async function dispatchStockWatch(env) {
     },
     body: JSON.stringify({
       ref,
-      inputs: { send_current_status: "true" },
+      inputs: {
+        send_current_status: "true",
+        check_skipped_urls: "true",
+      },
     }),
   });
 
   if (!response.ok) {
     const text = await response.text();
+    if (response.status === 401) {
+      throw new Error(
+        "GitHub tokenが無効です。Cloudflare WorkerのSecret GITHUB_TOKENを作り直して保存してください。",
+      );
+    }
+    if (response.status === 403) {
+      throw new Error(
+        "GitHub tokenの権限不足です。Actions: Read and write が必要です。",
+      );
+    }
     throw new Error(`GitHub API ${response.status}: ${text}`);
   }
 }
@@ -102,7 +120,7 @@ export default {
         type: DISCORD_CHANNEL_MESSAGE_WITH_SOURCE,
         data: {
           content:
-            "在庫状況チェックを起動しました。1分ほどでこのチャンネルに結果が届きます。",
+            "全販売ページの在庫状況チェックを起動しました。取得できないページも理由付きで、数分以内にこのチャンネルへ結果が届きます。",
           flags: DISCORD_EPHEMERAL,
         },
       });
