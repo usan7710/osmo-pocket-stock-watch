@@ -59,6 +59,8 @@ products:
 
 `conflict_policy` は、在庫あり/なし両方の文言が見つかった時の扱いです。誤通知を避けるため、初期値は `out_of_stock_wins` です。
 
+地域設定が必要なサイトでは `warmup_url` を指定すると、商品ページを取得する前にそのURLを1回だけ開いてCookieを保持します。同じページ内に複数のコンボがある場合は、`stock_scope_element_id` と `stock_scope_parent` で在庫判定する範囲を限定できます。公開HTMLの埋め込みJSONに商品ID別の状態があるサイトでは、`embedded_product_id` で該当商品のステータスだけを判定できます。
+
 ## 5. 商品URLの追加方法
 
 `urls` の下に監視対象を追加します。ヨドバシ、エディオン、ヤマダデンキなども同じ形で追加できます。
@@ -77,6 +79,8 @@ products:
 
 JavaScript描画が必要なページだけ `provider: "playwright"` にできます。その場合は追加で `playwright` のインストールとブラウザセットアップが必要です。ログイン、CAPTCHA、強いBot対策が出るページは監視対象から外してください。
 
+GitHub Actionsから403やタイムアウトが続くサイトは、無理に取得せず `provider: "manual"` と `manual_reason` を指定できます。`/stock` の結果には「🔗 手動確認」と商品リンクが表示され、エラー件数には入りません。
+
 AmazonはHTML直接監視に依存しすぎないため、サンプルでは `provider: "keepa"` を分けています。使う場合は `enabled: true`、`asin`、`KEEPA_API_KEY` を設定してください。
 
 ## 6. 手動実行方法
@@ -91,7 +95,7 @@ GitHub Actionsでは、リポジトリの `Actions` → `Stock Watch` → `Run w
 
 Discordで現在の在庫状況を確認したい場合は、`Run workflow` を押す時に `send_current_status` にチェックを入れて実行します。この場合は、在庫復活の有無に関係なく、現在の判定結果サマリーがDiscordへ送られます。
 
-一時スキップ中の販売ページも今回だけ確認したい場合は、`check_skipped_urls` にもチェックを入れます。定期実行では無効のままなので、アクセス頻度は増えません。普段無効のURLは最大12秒・再試行なしで1回だけ確認し、取得できない場合はURLとHTTPエラーなどの理由をDiscordに表示します。Amazonは直接スクレイピングせず、`KEEPA_API_KEY` が登録されている場合だけKeepa経由で確認します。
+一時スキップ中の販売ページも今回だけ確認したい場合は、`check_skipped_urls` にもチェックを入れます。`provider: manual` のサイトは通信せず、リンク付きの「🔗 手動確認」として表示します。それ以外の普段無効のURLは最大12秒・再試行なしで1回だけ確認します。Amazonは直接スクレイピングせず、`KEEPA_API_KEY` が登録されている場合だけKeepa経由で確認し、未設定時はエラーではなく設定待ちとして表示します。
 
 通知はDiscordの埋め込み表示で送られます。先頭に件数サマリーを表示し、有効な監視対象と一時スキップ中の対象を分けて確認できます。
 

@@ -12,6 +12,20 @@ products:
     name: "Osmo Pocket 4P Vlogコンボ"
     priority: 1
     urls:
+      - id: "dji_vlog"
+        site: "DJI公式"
+        url: "https://store.dji.com/jp/product/osmo-pocket-4p?vid=241311"
+        provider: "requests"
+        warmup_url: "https://store.dji.com/jp/selection/handheld?set_region=JP"
+        embedded_product_id: 241311
+        in_stock_keywords:
+          - "Osmo Pocket 4P Vlogコンボ"
+        out_of_stock_keywords:
+          - "在庫切れ"
+          - "入荷待ち"
+          - "売り切れ"
+          - "販売終了"
+
       - site: "Yahoo!ショッピング DJI公式"
         url: "https://store.shopping.yahoo.co.jp/dji-store/6937224148307.html"
         provider: "requests"
@@ -29,32 +43,20 @@ products:
           - "販売期間終了"
 
       - site: "楽天市場 DJI公式"
-        url: "https://item.rakuten.co.jp/dji-shop/6937224148307/"
+        url: "https://search.rakuten.co.jp/search/mall/6937224148307/"
+        display_url: "https://item.rakuten.co.jp/dji-shop/6937224148307/"
         provider: "requests"
         in_stock_keywords:
-          - "買い物かごに入れる"
-          - "商品をかごに追加"
-          - "購入手続き"
-          - "かごに追加"
-          - "購入する"
-          - "注文する"
-          - "在庫あり"
-          - "販売中"
+          - "Osmo Pocket 4P Vlogコンボ"
+          - "Osmo Pocket 4P Vlog コンボ"
         out_of_stock_keywords:
-          - "売り切れ"
-          - "売り切れました"
-          - "在庫切れ"
-          - "在庫なし"
-          - "品切れ"
-          - "注文できません"
-          - "販売期間前"
-          - "販売期間終了"
-          - "ご購入できません"
+          - "ご指定の検索条件に該当する商品はみつかりませんでした"
 
       - site: "ヨドバシ"
         enabled: false # GitHub Actionsからは403になりやすいため一旦無効
         url: "https://www.yodobashi.com/product/100000001009945170/"
-        provider: "requests"
+        provider: "manual"
+        manual_reason: "GitHub Actionsからの自動取得が403で拒否されるため、商品リンクから確認してください。"
         in_stock_keywords:
           - "ショッピングカートに入れる"
           - "在庫あり"
@@ -70,7 +72,8 @@ products:
       - site: "ビックカメラ"
         enabled: false # GitHub Actionsではタイムアウトしやすいため一旦無効
         url: "https://www.biccamera.com/bc/item/15228971/"
-        provider: "requests"
+        provider: "manual"
+        manual_reason: "GitHub Actionsからの応答がタイムアウトするため、商品リンクから確認してください。"
         in_stock_keywords:
           - "カートに入れる"
           - "在庫あり"
@@ -88,7 +91,8 @@ products:
       - site: "ビックカメラ 店舗在庫"
         enabled: false # GitHub Actionsではタイムアウトしやすいため一旦無効
         url: "https://www.biccamera.com/bc/tenpo/SfrBcToriokiList.jsp?GOODS_NO=15228971"
-        provider: "requests"
+        provider: "manual"
+        manual_reason: "店舗在庫ページはGitHub Actionsからタイムアウトするため、リンクから確認してください。"
         in_stock_keywords:
           - "在庫あり"
           - "在庫残少"
@@ -102,7 +106,8 @@ products:
       - site: "エディオン"
         enabled: false # GitHub Actionsからは403になりやすいため一旦無効
         url: "https://www.edion.com/detail.html?p_cd=00086212656"
-        provider: "requests"
+        provider: "manual"
+        manual_reason: "GitHub Actionsからの自動取得が403で拒否されるため、商品リンクから確認してください。"
         in_stock_keywords:
           - "カートに入れる"
           - "在庫あり"
@@ -147,15 +152,14 @@ products:
     name: "Osmo Pocket 4P スタンダードコンボ / 単品"
     priority: 2
     urls:
-      - site: "DJI公式"
-        enabled: false # GitHub Actions上で /jp が外れて404になるため一旦無効
-        url: "https://store.dji.com/jp/product/osmo-pocket-4p"
+      - id: "dji_standard"
+        site: "DJI公式"
+        url: "https://store.dji.com/jp/product/osmo-pocket-4p?vid=241282"
         provider: "requests"
+        warmup_url: "https://store.dji.com/jp/selection/handheld?set_region=JP"
+        embedded_product_id: 241282
         in_stock_keywords:
-          - "カートに追加"
-          - "カートに入れる"
-          - "購入する"
-          - "在庫あり"
+          - "Osmo Pocket 4P スタンダード コンボ"
         out_of_stock_keywords:
           - "在庫切れ"
           - "入荷待ち"
