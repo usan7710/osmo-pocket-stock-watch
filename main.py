@@ -60,6 +60,11 @@ def parse_args() -> argparse.Namespace:
         help="Send the current stock status summary to Discord.",
     )
     parser.add_argument(
+        "--check-disabled",
+        action="store_true",
+        help="Temporarily check targets with enabled: false for this run.",
+    )
+    parser.add_argument(
         "--log-level",
         default=os.getenv("LOG_LEVEL", "INFO"),
         choices=["DEBUG", "INFO", "WARNING", "ERROR"],
@@ -550,8 +555,11 @@ def check_target(
     target: dict[str, Any],
     config: dict[str, Any],
     checked_at: datetime,
+    *,
+    check_disabled: bool = False,
 ) -> CheckResult:
-    if target.get("enabled", True) is False:
+    target_disabled = target.get("enabled", True) is False
+    if target_disabled and not check_disabled:
         return build_result(
             product,
             target,
@@ -562,14 +570,30 @@ def check_target(
             key=target_key(str(product.get("id", "unknown_product")), target),
         )
 
-    provider = str(target.get("provider") or target.get("method") or "requests").lower()
+    effective_target = target
+    if target_disabled:
+        effective_target = dict(target)
+        manual_request = dict(target.get("request") or {})
+        manual_request.setdefault("timeout_seconds", 12)
+        manual_request.setdefault("retries", 0)
+        effective_target["request"] = manual_request
+
+    provider = str(
+        effective_target.get("provider")
+        or effective_target.get("method")
+        or "requests"
+    ).lower()
     try:
         if provider in {"requests", "html", "beautifulsoup"}:
-            return check_with_requests(session, product, target, config, checked_at)
+            return check_with_requests(
+                session, product, effective_target, config, checked_at
+            )
         if provider == "playwright":
-            return check_with_playwright(product, target, config, checked_at)
+            return check_with_playwright(product, effective_target, config, checked_at)
         if provider == "keepa":
-            return check_with_keepa(session, product, target, config, checked_at)
+            return check_with_keepa(
+                session, product, effective_target, config, checked_at
+            )
         return build_result(
             product,
             target,
@@ -597,7 +621,12 @@ def check_target(
         )
 
 
-def run_checks(config: dict[str, Any], checked_at: datetime) -> list[CheckResult]:
+def run_checks(
+    config: dict[str, Any],
+    checked_at: datetime,
+    *,
+    check_disabled: bool = False,
+) -> list[CheckResult]:
     products = config.get("products") or []
     if not isinstance(products, list):
         raise ValueError("products は配列で指定してください。")
@@ -614,7 +643,14 @@ def run_checks(config: dict[str, Any], checked_at: datetime) -> list[CheckResult
         for target in targets:
             if not isinstance(target, dict):
                 continue
-            result = check_target(session, product, target, config, checked_at)
+            result = check_target(
+                session,
+                product,
+                target,
+                config,
+                checked_at,
+                check_disabled=check_disabled,
+            )
             results.append(result)
             stock_text = (
                 "在庫あり"
@@ -678,7 +714,9 @@ def clean_reason(result: CheckResult) -> str:
             return "在庫なし表示を検出（" + reason.split(":", 1)[1].strip() + "）"
         return "在庫なし表示を検出"
     if result.status == "skipped":
-        return "一時スキップ中"
+        if "enabled: false" in result.reason:
+            return "設定で一時停止中（enabled: false）"
+        return result.reason
     if result.status == "error":
         return "取得エラー: " + (result.error or reason)
     if "キーワードに一致しません" in reason:
@@ -845,7 +883,12 @@ def build_current_status_embed(
         if result.priority != 1
     ]
     skipped_lines = [
-        f"⏸ [{result.site}]({result.url})\n{result.product_name}"
+        (
+            f"⏸ [{result.site}]({result.url})\n"
+            f"商品: {result.product_name}\n"
+            f"URL: <{result.url}>\n"
+            f"理由: {clean_reason(result)}"
+        )
         for result in sorted(skipped, key=lambda item: (item.priority, item.site))
     ]
 
@@ -1034,7 +1077,11 @@ def main() -> int:
         config = load_yaml(config_path)
         state = load_state(state_path)
         checked_at = now_utc()
-        results = run_checks(config, checked_at)
+        results = run_checks(
+            config,
+            checked_at,
+            check_disabled=args.check_disabled,
+        )
         events = find_notification_events(results, state)
         notification_results = send_notifications(events, results, config)
         if args.notify_current:

@@ -91,9 +91,11 @@ GitHub Actionsでは、リポジトリの `Actions` → `Stock Watch` → `Run w
 
 Discordで現在の在庫状況を確認したい場合は、`Run workflow` を押す時に `send_current_status` にチェックを入れて実行します。この場合は、在庫復活の有無に関係なく、現在の判定結果サマリーがDiscordへ送られます。
 
+一時スキップ中の販売ページも今回だけ確認したい場合は、`check_skipped_urls` にもチェックを入れます。定期実行では無効のままなので、アクセス頻度は増えません。普段無効のURLは最大12秒・再試行なしで1回だけ確認し、取得できない場合はURLとHTTPエラーなどの理由をDiscordに表示します。Amazonは直接スクレイピングせず、`KEEPA_API_KEY` が登録されている場合だけKeepa経由で確認します。
+
 通知はDiscordの埋め込み表示で送られます。先頭に件数サマリーを表示し、有効な監視対象と一時スキップ中の対象を分けて確認できます。
 
-Discordの `/stock` コマンドから現在状況確認を起動したい場合は、[discord/README.md](discord/README.md) を見てCloudflare Workerを設定してください。Discord Webhookだけではコマンドを受け取れないため、Discord Applicationと公開URLを持つ中継Workerが必要です。
+Discordの `/stock` コマンドから現在状況確認を起動した場合は、`send_current_status` と `check_skipped_urls` の両方が自動的に有効になります。設定方法は [discord/README.md](discord/README.md) を確認してください。Discord Webhookだけではコマンドを受け取れないため、Discord Applicationと公開URLを持つ中継Workerが必要です。
 
 ## 7. GitHub Actionsでの定期実行方法
 
@@ -101,6 +103,7 @@ Discordの `/stock` コマンドから現在状況確認を起動したい場合
 
 - `workflow_dispatch`: 手動実行
 - `send_current_status`: 手動実行時だけ現在状況をDiscordへ送信
+- `check_skipped_urls`: 一時スキップ中のURLも手動実行時だけ確認
 - `schedule`: 10分おきの定期実行
 - `DISCORD_WEBHOOK_URL`: GitHub Secretsから読み込み
 - 実行ログ: 各商品の判定結果を表示
