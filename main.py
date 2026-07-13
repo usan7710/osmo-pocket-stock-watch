@@ -147,6 +147,23 @@ def normalize_text(html: str) -> str:
     return re.sub(r"\s+", " ", text)
 
 
+def stock_scope_html(html: str, target: dict[str, Any]) -> str:
+    element_id = str(target.get("stock_scope_element_id", "")).strip()
+    if not element_id:
+        return html
+
+    soup = BeautifulSoup(html, "html.parser")
+    element = soup.find(id=element_id)
+    if element is None:
+        raise ValueError(f"在庫判定対象の要素が見つかりません: id={element_id}")
+
+    parent_name = str(target.get("stock_scope_parent", "label")).strip()
+    container = element.find_parent(parent_name) if parent_name else element.parent
+    if container is None:
+        container = element
+    return str(container)
+
+
 def keyword_matches(text: str, keywords: list[str] | None) -> list[str]:
     if not keywords:
         return []
@@ -184,6 +201,57 @@ def decide_structured_stock(html: str) -> tuple[str, bool | None, str] | None:
             + ", ".join(sorted(set(in_matches))),
         )
     return None
+
+
+def decide_embedded_product_stock(
+    html: str,
+    target: dict[str, Any],
+) -> tuple[str, bool | None, str] | None:
+    product_id = target.get("embedded_product_id")
+    if product_id in {None, ""}:
+        return None
+
+    try:
+        numeric_id = int(product_id)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"embedded_product_id が不正です: {product_id}") from exc
+
+    object_start = html.find(f'{{"id":{numeric_id},')
+    if object_start < 0:
+        raise ValueError(f"埋め込み商品データが見つかりません: id={numeric_id}")
+
+    try:
+        product_data, _ = json.JSONDecoder().raw_decode(html[object_start:])
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"埋め込み商品データを解析できません: id={numeric_id}") from exc
+
+    status_data = product_data.get("status") or {}
+    status_code = str(
+        status_data.get("code") if isinstance(status_data, dict) else status_data
+    ).casefold()
+    actions = product_data.get("actions") or {}
+    add_to_cart = actions.get("addToCart") if isinstance(actions, dict) else None
+
+    out_tokens = ("out_of_stock", "sold_out", "discontinued", "unavailable")
+    in_tokens = ("in_stock", "available", "on_sale", "selling")
+    if any(token in status_code for token in out_tokens):
+        return (
+            "out_of_stock",
+            False,
+            f"埋め込み商品データで在庫なしを検出: {status_code}",
+        )
+    if any(token in status_code for token in in_tokens) or add_to_cart is True:
+        detail = status_code or "addToCart=true"
+        return (
+            "in_stock",
+            True,
+            f"埋め込み商品データで在庫ありを検出: {detail}",
+        )
+    return (
+        "unknown",
+        None,
+        f"埋め込み商品データの状態を判定できません: {status_code or 'statusなし'}",
+    )
 
 
 def decide_stock(
@@ -276,6 +344,20 @@ def fetch_url(
     retries = int(settings.get("retries", 2))
     backoff = float(settings.get("backoff_seconds", 3))
     headers = build_headers(config, target)
+    warmup_url = str(target.get("warmup_url", "")).strip()
+    if warmup_url:
+        headers.setdefault("Referer", warmup_url)
+        completed_warmups = getattr(session, "_stock_watch_warmups", set())
+        if warmup_url not in completed_warmups:
+            warmup_response = session.get(
+                warmup_url,
+                headers=headers,
+                timeout=timeout,
+            )
+            warmup_response.raise_for_status()
+            completed_warmups.add(warmup_url)
+            session._stock_watch_warmups = completed_warmups
+            logging.info("地域・セッション設定用ページを確認しました: %s", warmup_url)
     last_error: Exception | None = None
 
     for attempt in range(retries + 1):
@@ -327,15 +409,19 @@ def check_with_requests(
         )
 
     html = fetch_url(session, url, config, target)
-    text = normalize_text(html)
+    embedded = decide_embedded_product_stock(html, target)
+    scoped_html = stock_scope_html(html, target)
+    text = normalize_text(scoped_html)
     conflict_policy = str(
         target.get(
             "conflict_policy",
             config.get("settings", {}).get("conflict_policy", "out_of_stock_wins"),
         )
     )
-    structured = decide_structured_stock(html)
-    if structured:
+    structured = decide_structured_stock(scoped_html)
+    if embedded:
+        status, in_stock, reason = embedded
+    elif structured:
         status, in_stock, reason = structured
     else:
         status, in_stock, reason = decide_stock(
@@ -398,15 +484,19 @@ def check_with_playwright(
         html = page.content()
         browser.close()
 
-    text = normalize_text(html)
+    embedded = decide_embedded_product_stock(html, target)
+    scoped_html = stock_scope_html(html, target)
+    text = normalize_text(scoped_html)
     conflict_policy = str(
         target.get(
             "conflict_policy",
             config.get("settings", {}).get("conflict_policy", "out_of_stock_wins"),
         )
     )
-    structured = decide_structured_stock(html)
-    if structured:
+    structured = decide_structured_stock(scoped_html)
+    if embedded:
+        status, in_stock, reason = embedded
+    elif structured:
         status, in_stock, reason = structured
     else:
         status, in_stock, reason = decide_stock(
@@ -456,9 +546,12 @@ def check_with_keepa(
             product,
             target,
             checked_at,
-            status="error",
+            status="manual",
             in_stock=None,
-            reason=f"{api_key_env} が未設定のためKeepa確認をスキップしました。",
+            reason=(
+                f"{api_key_env} が未設定です。Amazonは直接取得せず、"
+                "Keepa設定後に自動確認します。"
+            ),
             key=key,
             url=marketplace_url,
         )
@@ -539,7 +632,11 @@ def build_result(
         product_name=str(product.get("name", "Unknown product")),
         priority=product_priority(product),
         site=str(target.get("site", "unknown_site")),
-        url=str(url if url is not None else target.get("url", "")),
+        url=str(
+            url
+            if url is not None
+            else target.get("display_url") or target.get("url", "")
+        ),
         provider=str(target.get("provider") or target.get("method") or "requests"),
         status=status,
         in_stock=in_stock,
@@ -584,6 +681,21 @@ def check_target(
         or "requests"
     ).lower()
     try:
+        if provider in {"manual", "link", "link_only"}:
+            return build_result(
+                product,
+                effective_target,
+                checked_at,
+                status="manual",
+                in_stock=None,
+                reason=str(
+                    effective_target.get("manual_reason")
+                    or "このサイトはリンクから手動で確認してください。"
+                ),
+                key=target_key(
+                    str(product.get("id", "unknown_product")), effective_target
+                ),
+            )
         if provider in {"requests", "html", "beautifulsoup"}:
             return check_with_requests(
                 session, product, effective_target, config, checked_at
@@ -657,6 +769,12 @@ def run_checks(
                 if result.in_stock is True
                 else "在庫なし"
                 if result.in_stock is False
+                else "手動確認"
+                if result.status == "manual"
+                else "エラー"
+                if result.status == "error"
+                else "スキップ"
+                if result.status == "skipped"
                 else "判定保留"
             )
             logging.info(
@@ -700,6 +818,8 @@ def status_label(result: CheckResult) -> str:
         return "⏸ スキップ"
     if result.status == "error":
         return "⚠️ エラー"
+    if result.status == "manual":
+        return "🔗 手動確認"
     return "❓ 判定保留"
 
 
@@ -719,13 +839,19 @@ def clean_reason(result: CheckResult) -> str:
         return result.reason
     if result.status == "error":
         return "取得エラー: " + (result.error or reason)
+    if result.status == "manual":
+        return reason
     if "キーワードに一致しません" in reason:
         return "在庫判定キーワードに一致せず"
     return reason
 
 
 def status_color(results: list[CheckResult]) -> int:
-    active = [result for result in results if result.status != "skipped"]
+    active = [
+        result for result in results if result.status not in {"skipped", "manual"}
+    ]
+    if not active:
+        return 0x3498DB
     if any(result.in_stock is True for result in active):
         return 0x2ECC71
     if any(result.status == "error" for result in active):
@@ -741,10 +867,11 @@ def count_statuses(results: list[CheckResult]) -> dict[str, int]:
         "out_of_stock": sum(result.in_stock is False for result in results),
         "unknown": sum(
             result.in_stock is None
-            and result.status not in {"skipped", "error"}
+            and result.status not in {"skipped", "error", "manual"}
             for result in results
         ),
         "error": sum(result.status == "error" for result in results),
+        "manual": sum(result.status == "manual" for result in results),
         "skipped": sum(result.status == "skipped" for result in results),
     }
 
@@ -861,6 +988,7 @@ def build_current_status_embed(
         f"❌ 在庫なし {active_counts['out_of_stock']}件 / "
         f"❓ 判定保留 {active_counts['unknown']}件 / "
         f"⚠️ エラー {active_counts['error']}件 / "
+        f"🔗 手動確認 {active_counts['manual']}件 / "
         f"⏸ スキップ {counts['skipped']}件"
     )
 

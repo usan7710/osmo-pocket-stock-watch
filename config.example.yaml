@@ -16,6 +16,13 @@ products:
       - site: "DJI公式"
         url: "ここにDJI公式のVlogコンボ商品URL"
         provider: "requests"
+        # 地域設定が必要なサイトは、商品ページの前に開くURLを指定できます。
+        # warmup_url: "https://example.com/jp/selection"
+        # 同じページに複数商品がある場合は、判定対象の要素を限定できます。
+        # stock_scope_element_id: "商品バリエーションの要素ID"
+        # stock_scope_parent: "label"
+        # 埋め込みJSONに商品ID別のstatusがある場合は、IDを指定できます。
+        # embedded_product_id: 123456
         in_stock_keywords:
           - "カートに入れる"
           - "購入する"
@@ -59,16 +66,8 @@ products:
       - site: "ヨドバシ"
         enabled: false
         url: "ここに商品URL"
-        provider: "requests"
-        in_stock_keywords:
-          - "在庫あり"
-          - "販売中"
-          - "ショッピングカートに入れる"
-        out_of_stock_keywords:
-          - "販売を終了しました"
-          - "予定数の販売を終了しました"
-          - "在庫なし"
-          - "お取り寄せ"
+        provider: "manual"
+        manual_reason: "GitHub Actionsから取得できないため、リンクから確認してください。"
 
       - site: "Amazon"
         enabled: false

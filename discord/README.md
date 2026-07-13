@@ -83,7 +83,7 @@ Invoke-RestMethod `
 - Discord Webhookだけではコマンド受信はできません。
 - Cloudflare WorkerのURLは公開URLですが、Discord署名を検証しているため、Discordからの正規リクエストだけ処理します。
 - GitHub tokenは絶対にREADMEやチャットに貼らないでください。
-- `/stock` では無効化中のURLにも最大12秒・再試行なしで一度だけアクセスします。403、タイムアウト、404などの場合は在庫を推測せず、URLとエラー理由をDiscordに表示します。
+- `/stock` では無効化中のURLも確認対象に含めます。`provider: manual` のサイトには通信せず、リンク付きの「🔗 手動確認」として表示します。それ以外は最大12秒・再試行なしで一度だけ確認します。
 - Amazonは直接スクレイピングしません。GitHub Secretsに `KEEPA_API_KEY` がない場合は取得エラーとして表示します。
 
 ## エラー対処
