@@ -59,9 +59,9 @@
       "product_id": "osmo_pocket_4p_vlog",
       "product_name": "Osmo Pocket 4P Vlogコンボ",
       "provider": "manual",
-      "reason": "GitHub Actionsからの自動取得が403で拒否されるため、商品リンクから確認してください。",
+      "reason": "enabled: false のためスキップしました。",
       "site": "エディオン",
-      "status": "manual",
+      "status": "skipped",
       "url": "https://www.edion.com/detail.html?p_cd=00086212656"
     },
     "osmo_pocket_4p_vlog:5b758d3c11dd1818": {
@@ -75,9 +75,9 @@
       "product_id": "osmo_pocket_4p_vlog",
       "product_name": "Osmo Pocket 4P Vlogコンボ",
       "provider": "manual",
-      "reason": "GitHub Actionsからの自動取得が403で拒否されるため、商品リンクから確認してください。",
+      "reason": "enabled: false のためスキップしました。",
       "site": "ヨドバシ",
-      "status": "manual",
+      "status": "skipped",
       "url": "https://www.yodobashi.com/product/100000001009945170/"
     },
     "osmo_pocket_4p_vlog:8f4fd17d4392dbf9": {
@@ -91,9 +91,9 @@
       "product_id": "osmo_pocket_4p_vlog",
       "product_name": "Osmo Pocket 4P Vlogコンボ",
       "provider": "manual",
-      "reason": "店舗在庫ページはGitHub Actionsからタイムアウトするため、リンクから確認してください。",
+      "reason": "enabled: false のためスキップしました。",
       "site": "ビックカメラ 店舗在庫",
-      "status": "manual",
+      "status": "skipped",
       "url": "https://www.biccamera.com/bc/tenpo/SfrBcToriokiList.jsp?GOODS_NO=15228971"
     },
     "osmo_pocket_4p_vlog:a88b7c8592344214": {
@@ -139,9 +139,9 @@
       "product_id": "osmo_pocket_4p_vlog",
       "product_name": "Osmo Pocket 4P Vlogコンボ",
       "provider": "manual",
-      "reason": "GitHub Actionsからの応答がタイムアウトするため、商品リンクから確認してください。",
+      "reason": "enabled: false のためスキップしました。",
       "site": "ビックカメラ",
-      "status": "manual",
+      "status": "skipped",
       "url": "https://www.biccamera.com/bc/item/15228971/"
     },
     "osmo_pocket_4p_vlog:d9524a0a05fe755c": {
@@ -171,9 +171,9 @@
       "product_id": "osmo_pocket_4p_vlog",
       "product_name": "Osmo Pocket 4P Vlogコンボ",
       "provider": "keepa",
-      "reason": "KEEPA_API_KEY が未設定です。Amazonは直接取得せず、Keepa設定後に自動確認します。",
+      "reason": "enabled: false のためスキップしました。",
       "site": "Amazon",
-      "status": "manual",
+      "status": "skipped",
       "url": "https://www.amazon.co.jp/dp/B0GKPH85VZ"
     },
     "osmo_pocket_4p_vlog:dji_vlog": {
@@ -193,6 +193,6 @@
       "url": "https://store.dji.com/jp/product/osmo-pocket-4p?vid=241311"
     }
   },
-  "updated_at": "2026-07-13T08:03:49.757982+00:00",
+  "updated_at": "2026-07-13T11:23:48.786470+00:00",
   "version": 1
 }
